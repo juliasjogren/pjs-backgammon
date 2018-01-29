@@ -1,0 +1,65 @@
+* {
+  margin: 0 auto;
+  padding: 0;
+}
+
+canvas {
+  display: block;
+  margin-top: 2vh;
+  border-radius: 15px;
+
+  width: 80vw;
+  height: 80vh;
+}
+
+body {
+  background: #CCEEEE;
+}
+
+header {
+  font-size: 1.5em;
+  text-align: center;
+  color: white;
+  text-shadow: 0 0 15px black;
+}
+header > h1 {
+  margin: 0;
+}
+
+.p {
+  color: darkred;
+}
+.j {
+  color: darkorange;
+}
+
+nav {
+  height: 7vh;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+/* nav:before {
+  content: "";
+  position: absolute;
+  width: 15%;
+  height: 75%;
+  
+  z-index: -1;
+  transform: rotate(90deg);
+  
+  border-radius: 5px;
+  background: url("./bg/5.png") 0 0 repeat;
+
+  background-size: 25% 100%;
+} */
+
+nav > .navBtn {
+  flex: 0 1 auto;
+  height: 40%;
+  width: 20%;
+  box-shadow: 2px 2px 5px black;
+  border-radius: 5px;
+  background: beige;
+}

@@ -1,0 +1,82 @@
+.cloud {
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 15px currentColor,
+              0 0 30px currentColor,
+              0 0 50px currentColor,
+              0 5px 25px lightgrey;
+  z-index: 1;
+  pointer-events: none;
+}
+.cloud::before {
+  content: "";
+  position: absolute;
+  height: 20vh;
+  width: 25vh;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 15px currentColor,
+              0 0 30px currentColor,
+              0 0 50px currentColor,
+              0 5px 25px lightgrey;
+  z-index: -1;
+  top: 5vh;
+  left: -10vw;
+  pointer-events: none;  
+}
+.cloud::after {
+  content: "";
+  position: absolute;
+  height: 20vh;
+  width: 25vh;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 15px currentColor,
+              0 0 30px currentColor,
+              0 0 50px currentColor,
+              0 5px 25px lightgrey;
+  z-index: -1;  
+  top: 5vh;
+  left: 10vw;
+  pointer-events: none;
+}
+
+.moving-cloud {
+  position: absolute;
+  height: 20vh;
+  width: 25vh;
+
+  animation-name: cloud-test;
+  animation-duration: 10s;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+  /* animation-duration: 10s, 30s; */
+  /* animation-iteration-count: 1, infinite; */
+}
+
+@keyframes cloud-test {
+  from {
+  }
+  to {
+    transform: translate3d(-100vw, 0px, 0px);
+  }
+}
+
+.moving-cloud:nth-child(even) {
+
+}
+
+/* Even clouds (child even) go one way, odds the other */
+
+#cloud1 {
+  top: 7vh;
+  left: 26vw;
+}
+#cloud3 {
+  top: -5vh;
+  left: 29vw;
+}
+#cloud5 {
+  top: 6vh;
+  left: 35vw;
