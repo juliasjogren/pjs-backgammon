@@ -307,7 +307,7 @@ Backgammon.setupGame()
 
 console.log(Backgammon)
 
-//---------------------------------PIXI--------------------------------------
+//-----------------------------------------PIXI-------------------------------------------------------
 
 let colors = {
   background: 0x86592d,
@@ -416,7 +416,7 @@ function drawGame () {
   }
 
   function makeActivePiece (color) {
-    let piece = makeCircle(0, 0, pieceSize, color)
+    let piece = makeCircle(0, 0, pieceSize, color, true)
     piece.visible = false
 
     piece.hide = function () {
@@ -490,6 +490,7 @@ function drawGame () {
       let dice = Backgammon.rollDice()
       die1.setNumber(dice[0].number)
       die2.setNumber(dice[1].number)
+      checkDice()
     })
 
     die.setNumber = function (number) {
@@ -620,6 +621,28 @@ function drawGame () {
     if (allUsed) {
       die1.zero()
       die2.zero()
+      hideAllMoveMarkers()
+    } else {
+      checkPossibleMoves()
+    }
+  }
+
+  function checkPossibleMoves () {
+    for (let cell of cells) {
+      let cellNbr = cells.indexOf(cell)
+      let bCell = Backgammon.board[cellNbr]
+
+      if (bCell.possibleMove) {
+        cell.showMarker()
+      } else {
+        cell.hideMarker()
+      }
+    }
+  }
+
+  function hideAllMoveMarkers () {
+    for (let cell of cells) {
+      cell.hideMarker()
     }
   }
 
@@ -698,13 +721,16 @@ function drawGame () {
     return rectangle
   }
 
-  function makeCircle (x, y, size, color) {
+  function makeCircle (x, y, size, color, hasLine) {
     let circle = new PIXI.Graphics()
 
     size = size / 2
+    
+    if (hasLine) {
+      circle.lineStyle(2, 0x888888)
+    }
 
     circle.beginFill(color)
-    circle.lineStyle(1, 0x000000)
     circle.drawCircle(0, 0, size)
     circle.endFill()
     circle.x = x
