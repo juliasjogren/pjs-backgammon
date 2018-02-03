@@ -8,6 +8,12 @@ let Backgammon = (function () {
       this.isJailed = false
       this.canExit = false
     }
+
+    getJailedPiece() {
+      for (let piece of this.pieces) {
+        if (piece.isJailed) return piece
+      }
+    }
   }
 
   class Cell {
@@ -67,6 +73,8 @@ let Backgammon = (function () {
 
     B.player1 = new Player('Player One')
     B.player2 = new Player('Player Two')
+    B.player1.opponent = B.player2
+    B.player2.opponent = B.player1
     setStartPositions()
 
     B.round = new Round(B.player1)
@@ -82,17 +90,17 @@ let Backgammon = (function () {
 
   function setStartPositions () {
     normalStart()
-    // testStart()
+    //testStart()
 
     function normalStart () {
       addPiecesToCell(0, B.player1, 5)
-      addPiecesToCell(5, B.player2, 3)
+      addPiecesToCell(4, B.player2, 3)
       addPiecesToCell(6, B.player2, 5)
       addPiecesToCell(11, B.player1, 2)
 
       addPiecesToCell(12, B.player2, 2)
       addPiecesToCell(17, B.player1, 5)
-      addPiecesToCell(18, B.player1, 3)
+      addPiecesToCell(19, B.player1, 3)
       addPiecesToCell(23, B.player2, 5)
     }
 
@@ -124,7 +132,7 @@ let Backgammon = (function () {
       B.round.dice.push(new Die())
       B.round.dice.push(new Die())
       if (B.round.dice[0].number === B.round.dice[1].number) {
-        B.round.dice.push(new Die(B.round.dice[0].number))
+        B.round.dice.unshift(new Die(B.round.dice[0].number))
         console.log('Double dice!')
       }
       B.round.state = B.round.STATES.MOVE
@@ -188,11 +196,11 @@ let Backgammon = (function () {
     return player.home.length === 15
   }
 
-  B.movePiece = function (piece, fromCell, toCell) {
+  B.movePiece = function (piece, fromCellNbr, toCellNbr) {
     if (B.round.state !== B.round.STATES.MOVE) return false
 
-    let toCellNbr = B.board.indexOf(toCell)
-    let fromCellNbr = piece.cellNbr
+    let toCell = B.board[toCellNbr]
+    let fromCell = piece.cell
 
     let stepsNeeded = Math.abs(toCellNbr - fromCellNbr)
 
@@ -205,7 +213,10 @@ let Backgammon = (function () {
         piece.cellNbr = toCellNbr
         piece.cell.pieces.push(piece)
         piece.isJailed = false
-        piece.player.isJailed = false
+        
+        if (!piece.player.getJailedPiece()) {
+          piece.player.isJailed = false
+        }
 
         if (piece.cell.pieces[0] && piece.cell.pieces[0].player !== piece.player) {
           console.log('jail time')
@@ -296,454 +307,445 @@ Backgammon.setupGame()
 
 console.log(Backgammon)
 
-// ************************* Hexi *************************
+//---------------------------------PIXI--------------------------------------
 
-let g = hexi(800, 600, setup)
-
-let startScene, gameOverScene
-
-let cells = []
-let dice = []
-let selectedPiece
-
-g.start()
-
-function setup () {
-  g.fps = 30
-  g.backgroundColor = '#3e2311'
-
-  // startScene = makeStartScene()
-  makeGameScene()
-  // gameOverScene = makeGameOverScene()
+let colors = {
+  background: 0x86592d,
+  home: 0xfcf1cf,
+  playArea: 0x86592d,
+  diceArea: 0x27190c,
+  cellDark: 0x27190c,
+  celllight: 0xfcf1cf,
+  pieceOne: 0xfcf1cf,
+  pieceTwo: 0x27190c,
+  die: 0xfcf1cf,
+  moveMarker: 0x4d9900,
+  pip: 0x000000
 }
+let gameDiv = document.getElementById('game')
 
-function makeStartScene () {
-  let scene = g.group()
+let gameWidth = gameDiv.offsetWidth
+let gameHeight = gameDiv.offsetHeight
 
-  let background = makeBackground()
-  scene.add(background)
+let game = new PIXI.Application({width: gameWidth, height: gameHeight, antialias: true})
 
-  let button = g.rectangle(
-    100,
-    100,
-    'blue',
-    'grey',
-    2,
-    g.canvas.width / 2 - 50,
-    g.canvas.height / 2 - 50
-  )
-  scene.add(button)
-  button.interact = true
-  button.tap = () => {
-    console.log('1')
-    scene.visible = false
-  }
+gameDiv.appendChild(game.view)
 
-  return scene
-}
+game.renderer.backgroundColor = colors.background
+game.renderer.autoResize = true
 
-function makeGameScene () {
-  let home1 = g.rectangle(
-    g.canvas.width * 0.2,
-    g.canvas.height * 0.4,
-    'beige',
-    'dark brown',
-    0,
-    10,
-    10
-  )
-  home1.layer = -1
-  Backgammon.player2.homeSprite = home1
+drawGame()
 
-  let home2 = g.rectangle(
-    g.canvas.width * 0.2,
-    g.canvas.height * 0.4,
-    'beige',
-    'dark brown',
-    0,
-    10,
-    g.canvas.height * 0.55 + 20
-  )
-  home2.layer = -1
+function drawGame () {
+  let backgroundLayer = new PIXI.Container()
+  backgroundLayer.zIndex = -1
+  game.stage.addChild(backgroundLayer)
+  let foregroundLayer = new PIXI.Container()
+  foregroundLayer.zIndex = 1
+  game.stage.addChild(foregroundLayer)
+  let activeLayer = new PIXI.Container()
+  activeLayer.zIndex = 2
+  game.stage.addChild(activeLayer)
+
+  let homeWidth = gameWidth / 7
+  let homeHeight = gameHeight / 3
+
+  let padding = 15
+
+  let playAreaWidth = (gameWidth / 2) - homeWidth / 2 - ((padding * 4) / 2)
+  let playAreaHeight = (gameHeight / 2) - ((padding * 3) / 2)
+
+  let cellWidth = playAreaWidth / 6
+  let cellHeight = playAreaHeight
+
+  let pieceSize = cellWidth * 0.7
+
+  let moveMarkerSize = cellWidth / 4
+
+  let diceAreaWidth = homeWidth
+  let diceAreaHeight = homeHeight - padding * 4
+
+  let dieWidth = diceAreaHeight / 3
+  let dieHeight = diceAreaHeight / 3
+  let pipSize = dieWidth / 5
+
+  let cells = []
+  let home1 = makeHomeArea(padding, padding, homeWidth, homeHeight, colors.home)
+  let home2 = makeHomeArea(padding, gameHeight - homeHeight - padding, homeWidth, homeHeight, colors.home)
+  let diceArea = makeDiceArea(padding, homeHeight + padding * 2)
+  let die1 = makeDie(padding + diceAreaWidth / 2 - dieWidth / 2, padding * 3 + homeHeight, dieWidth, dieHeight, colors.die)
+  let die2 = makeDie(padding + diceAreaWidth / 2 - dieWidth / 2, padding * 4 + homeHeight + dieHeight, dieWidth, dieHeight, colors.die)
+  let playArea1 = makePlayArea(homeWidth + padding * 2, padding)
+  let playArea2 = makePlayArea(homeWidth + playAreaWidth + padding * 3, padding)
+  let playArea3 = makePlayArea(homeWidth + padding * 2, gameHeight - padding - playAreaHeight)
+  let playArea4 = makePlayArea(homeWidth + playAreaWidth + padding * 3, gameHeight - padding - playAreaHeight)
+
   Backgammon.player1.homeSprite = home2
+  Backgammon.player2.homeSprite = home1
+  Backgammon.player1.activePiece = makeActivePiece(colors.pieceOne)
+  Backgammon.player2.activePiece = makeActivePiece(colors.pieceTwo)
 
-  let diceArea = g.rectangle(
-    g.canvas.width * 0.2,
-    g.canvas.height * 0.2 - 40,
-    '#291203',
-    'dark brown',
-    0,
-    10,
-    g.canvas.height * 0.4 + 20
-  )
-  diceArea.layer = -1
+  let selectedPiece
 
-  diceArea.interact = true
-  diceArea.tap = () => {
-    let dice = Backgammon.rollDice()
-    die1.text.content = dice[0].number
-    die2.text.content = dice[1].number
-
-    die1.putCenter(die1.text)
-    die2.putCenter(die2.text)
-
-    spinDie(die1)
-    spinDie(die2)
-
-    checkPossibleMoves()
+  for (let i = 0; i < 6; i++) {
+    let color = i % 2 === 0 ? colors.cellDark : colors.celllight
+    cells.push(makeCell(playArea1.x + cellWidth * i, playArea1.y, color))
   }
 
-  function spinDie (die, counter) {
-    die.rotation += 10
+  for (let i = 0; i < 6; i++) {
+    let color = i % 2 === 0 ? colors.cellDark : colors.celllight
+    cells.push(makeCell(playArea2.x + cellWidth * i, playArea2.y, color))
   }
 
-  let die1 = g.rectangle(
-    g.canvas.width * 0.1 - 15,
-    g.canvas.height * 0.2 - 60,
-    'beige',
-    'beige',
-    0,
-    20,
-    g.canvas.height * 0.4 + 30
-  )
-  die1.layer = -1
-  die1.setPivot(0.5, 0.5)
-  dice[0] = die1
-  die1.text = g.text('Roll', '2em puzzler', 'black')
-  die1.putCenter(die1.text)
+  for (let i = 5; i >= 0; i--) {
+    let color = i % 2 === 0 ? colors.celllight : colors.cellDark
+    cells.push(makeCell(playArea4.x + cellWidth * i, playArea4.y, color, true))
+  }
 
-  let die2 = g.rectangle(
-    g.canvas.width * 0.1 - 15,
-    g.canvas.height * 0.2 - 60,
-    'beige',
-    'beige',
-    0,
-    g.canvas.width * 0.1 - 15 + 30,
-    g.canvas.height * 0.4 + 30
-  )
-  die2.layer = -1
-  die2.setPivot(0.5, 0.5)
-  dice[1] = die2
-  die2.text = g.text('Roll', '2em puzzler', 'black')
-  die2.putCenter(die2.text)
-
-  let playArea1 = g.rectangle(
-    g.canvas.width * 0.4 - 20,
-    g.canvas.height * 0.5 - 15,
-    'beige',
-    'dark brown',
-    0,
-    g.canvas.width * 0.2 + 20,
-    10
-  )
-  playArea1.visible = false
-  playArea1.layer = -1
-  let playArea2 = g.rectangle(
-    g.canvas.width * 0.4 - 20,
-    g.canvas.height * 0.5 - 15,
-    'beige',
-    'dark brown',
-    0,
-    g.canvas.width * 0.6 + 10,
-    10
-  )
-  playArea2.visible = false
-  playArea2.layer = -1
-  let playArea3 = g.rectangle(
-    g.canvas.width * 0.4 - 20,
-    g.canvas.height * 0.5 - 15,
-    'beige',
-    'dark brown',
-    0,
-    g.canvas.width * 0.2 + 20,
-    g.canvas.height * 0.5 + 5
-  )
-  playArea3.visible = false
-  playArea3.layer = -1
-  let playArea4 = g.rectangle(
-    g.canvas.width * 0.4 - 20,
-    g.canvas.height * 0.5 - 15,
-    'beige',
-    'dark brown',
-    0,
-    g.canvas.width * 0.6 + 10,
-    g.canvas.height * 0.5 + 5
-  )
-  playArea4.visible = false
-  playArea4.layer = -1
-
-  cells[0] = Backgammon.board[0].sprite = makeCell('#FCF3CF', playArea1, 0)
-  cells[0].cell = Backgammon.board[0]
-  cells[1] = Backgammon.board[1].sprite = makeCell('#291203', playArea1, 1)
-  cells[1].cell = Backgammon.board[1]
-  cells[2] = Backgammon.board[2].sprite = makeCell('#FCF3CF', playArea1, 2)
-  cells[2].cell = Backgammon.board[2]
-  cells[3] = Backgammon.board[3].sprite = makeCell('#291203', playArea1, 3)
-  cells[3].cell = Backgammon.board[3]
-  cells[4] = Backgammon.board[4].sprite = makeCell('#FCF3CF', playArea1, 4)
-  cells[4].cell = Backgammon.board[4]
-  cells[5] = Backgammon.board[5].sprite = makeCell('#291203', playArea1, 5)
-  cells[5].cell = Backgammon.board[5]
-
-  cells[6] = Backgammon.board[6].sprite = makeCell('#FCF3CF', playArea2, 0)
-  cells[6].cell = Backgammon.board[6]
-  cells[7] = Backgammon.board[7].sprite = makeCell('#291203', playArea2, 1)
-  cells[7].cell = Backgammon.board[7]
-  cells[8] = Backgammon.board[8].sprite = makeCell('#FCF3CF', playArea2, 2)
-  cells[8].cell = Backgammon.board[8]
-  cells[9] = Backgammon.board[9].sprite = makeCell('#291203', playArea2, 3)
-  cells[9].cell = Backgammon.board[9]
-  cells[10] = Backgammon.board[10].sprite = makeCell('#FCF3CF', playArea2, 4)
-  cells[10].cell = Backgammon.board[10]
-  cells[11] = Backgammon.board[11].sprite = makeCell('#291203', playArea2, 5)
-  cells[11].cell = Backgammon.board[11]
-
-  cells[23] = Backgammon.board[23].sprite = makeCell('#291203', playArea3, 0)
-  cells[23].cell = Backgammon.board[23]
-  cells[22] = Backgammon.board[22].sprite = makeCell('#FCF3CF', playArea3, 1)
-  cells[22].cell = Backgammon.board[22]
-  cells[21] = Backgammon.board[21].sprite = makeCell('#291203', playArea3, 2)
-  cells[21].cell = Backgammon.board[21]
-  cells[20] = Backgammon.board[20].sprite = makeCell('#FCF3CF', playArea3, 3)
-  cells[20].cell = Backgammon.board[20]
-  cells[19] = Backgammon.board[19].sprite = makeCell('#291203', playArea3, 4)
-  cells[19].cell = Backgammon.board[19]
-  cells[18] = Backgammon.board[18].sprite = makeCell('#FCF3CF', playArea3, 5)
-  cells[18].cell = Backgammon.board[18]
-
-  cells[17] = Backgammon.board[17].sprite = makeCell('#291203', playArea4, 0)
-  cells[17].cell = Backgammon.board[17]
-  cells[16] = Backgammon.board[16].sprite = makeCell('#FCF3CF', playArea4, 1)
-  cells[16].cell = Backgammon.board[16]
-  cells[15] = Backgammon.board[15].sprite = makeCell('#291203', playArea4, 2)
-  cells[15].cell = Backgammon.board[15]
-  cells[14] = Backgammon.board[14].sprite = makeCell('#FCF3CF', playArea4, 3)
-  cells[14].cell = Backgammon.board[14]
-  cells[13] = Backgammon.board[13].sprite = makeCell('#291203', playArea4, 4)
-  cells[13].cell = Backgammon.board[13]
-  cells[12] = Backgammon.board[12].sprite = makeCell('#FCF3CF', playArea4, 5)
-  cells[12].cell = Backgammon.board[12]
+  for (let i = 5; i >= 0; i--) {
+    let color = i % 2 === 0 ? colors.celllight : colors.cellDark
+    cells.push(makeCell(playArea3.x + cellWidth * i, playArea3.y, color, true))
+  }
 
   for (let piece of Backgammon.player1.pieces) {
-    let pieceSprite = makePiece(piece.cellNbr, Backgammon.player1)
-    pieceSprite.piece = piece
-    piece.pieceSprite = pieceSprite
+    let pieceSprite = makePiece(cells[piece.cellNbr], piece)
   }
+
   for (let piece of Backgammon.player2.pieces) {
-    let pieceSprite = makePiece(piece.cellNbr, Backgammon.player2)
-    pieceSprite.piece = piece
-    piece.pieceSprite = pieceSprite
+    let pieceSprite = makePiece(cells[piece.cellNbr], piece)
   }
-}
 
-function makeGameOverScene () {
-  let scene = g.group()
-  scene.visible = false
+  function makeActivePiece (color) {
+    let piece = makeCircle(0, 0, pieceSize, color)
+    piece.visible = false
 
-  let background = makeBackground()
-  scene.add(background)
-
-  return scene
-}
-
-function makeBackground () {
-  let background = g.rectangle(
-    g.canvas.width,
-    g.canvas.height,
-    'Black',
-    'Black',
-    0,
-    0,
-    0
-  )
-  background.alpha = 0.8
-
-  return background
-}
-
-function makeCell (color, area, cellNbr) {
-  let cellWidth = (g.canvas.width * 0.4 - 20) / 6
-
-  let cell = g.rectangle(
-    cellWidth,
-    g.canvas.height * 0.5 - 15,
-    color,
-    'black',
-    0,
-    area.x + cellWidth * cellNbr,
-    area.y
-  )
-  cell.layer = -1
-
-  cell.pieces = []
-
-  return cell
-}
-
-function makePiece (cellNbr, player) {
-  let piece = g.circle(
-    (g.canvas.width * 0.4 - 20) / 6 - 5,
-    player === Backgammon.player1 ? 'white' : 'black',
-    'grey',
-    2
-  )
-  piece.layer = -1
-
-  piece.player = player
-
-  piece.draggable = true
-  piece.interact = true
-
-  piece.press = () => {
-    if (!selectedPiece) {
-      selectedPiece = piece
+    piece.hide = function () {
+      piece.visible = false
     }
+    piece.show = function () {
+      piece.visible = true
+    }
+
+    activeLayer.addChild(piece)
+    game.ticker.add(() => {
+      let pointer = game.renderer.plugins.interaction.mouse.global
+      piece.x = pointer.x
+      piece.y = pointer.y
+    })
+
+    return piece
   }
 
-  piece.release = () => {
-    if (!selectedPiece || piece !== selectedPiece) return
+  function makeInteractive (sprite, callback) {
+    sprite.interactive = true
+    sprite.buttonMode = true
+    sprite.click = callback
+  }
 
-    let hitHome = g.hitTestPoint(g.pointer, Backgammon.round.player.homeSprite)
+  function makePlayArea (x, y) {
+    let area = makeRectangle(x, y, playAreaWidth, playAreaHeight, colors.playArea)
+    area.visible = false
+    return area
+  }
 
-    if (hitHome) {
-      if (Backgammon.exitPiece(selectedPiece.piece)) {
-        selectedPiece.interact = false
-        // selectedPiece.draggable = false
-        selectedPiece.player.homeSprite.putCenter(selectedPiece)
-        selectedPiece.cell.pieces.splice(selectedPiece.cell.pieces.indexOf(piece), 1)
-        console.log('Exit')
-        if (Backgammon.checkWin(selectedPiece.piece.player)) {
-          console.log('Win!!')
-          gameOverScene.visible = true
+  function makeHomeArea (x, y) {
+    let home = makeRoundedRectangle(x, y, homeWidth, homeHeight, colors.home)
+    backgroundLayer.addChild(home)
+    makeInteractive(home, function () {
+      let activePlayer = Backgammon.round.player
+      if (activePlayer.homeSprite === home) {
+        if (activePlayer.activePiece.visible) {
+          let successfulExit = Backgammon.exitPiece(selectedPiece.piece)
+          if (successfulExit) {
+            activePlayer.activePiece.hide()
+            if (Backgammon.checkWin(activePlayer)) console.log(activePlayer.name + 'Win!!')
+          } else {
+            let fromCellNbr = selectedPiece.piece.cellNbr
+            let fromCell = cells[fromCellNbr]
+            makePiece(fromCell, selectedPiece.piece)
+            activePlayer.activePiece.hide()
+          }
         }
       } else {
-        console.log('No exit')
-        moveBackPiece(selectedPiece)
-      }
-    } else {
-      movePiece()
-      clearJailedPieces()
-      checkPossibleMoves()
-    }
-
-    selectedPiece = null
-    console.log(!selectedPiece)
-  }
-
-  addPieceToCell(piece, cellNbr)
-
-  return piece
-
-  function clearJailedPieces () {
-    for (let piece of Backgammon.round.player.pieces) {
-      if (piece.isJailed) {
-        console.log('found piece that should be jailed')
-        if (Backgammon.round.player === Backgammon.player1) {
-          Backgammon.player2.homeSprite.putCenter(piece.pieceSprite)
-        } else {
-          Backgammon.player1.homeSprite.putCenter(piece.pieceSprite)
+        if (activePlayer.isJailed) {
+          selectedPiece = activePlayer.opponent.homeSprite.children.pop()
+          activePlayer.activePiece.show()
         }
       }
-    }
+    })
+    return home
   }
 
-  function movePiece () {
-    let cell = findCellOnPointer()
-    if (!cell) return moveBackPiece(piece)
-    let allowedMove = Backgammon.movePiece(piece.piece, piece.cell.cell, cell.cell)
-    if (allowedMove) {
-      addPieceToCell(piece, cells.indexOf(cell))
-    } else {
-      console.log('No move')
-      moveBackPiece(piece)
-    }
+  function makeDiceArea (x, y) {
+    let area = makeRoundedRectangle(x, y, diceAreaWidth, diceAreaHeight, colors.diceArea)
+    backgroundLayer.addChild(area)
+    return area
   }
-}
 
-function checkPossibleMoves () {
-  clearPossibleMoveMarkers()
-  // console.log('checking moves hexi')
-  for (let cell of cells) {
-    if (cell.cell.possibleMove) {
-      addPossibleMoveMarker(cell)
-    }
-  }
-}
+  function makeDie (x, y) {
+    let die = makeRoundedRectangle(x, y, dieWidth, dieHeight, colors.die)
+    foregroundLayer.addChild(die)
+    makeInteractive(die, function () {
+      console.log('Die click')
+      let dice = Backgammon.rollDice()
+      die1.setNumber(dice[0].number)
+      die2.setNumber(dice[1].number)
+    })
 
-function addPossibleMoveMarker (cell) {
-  let markerSize = cell.width / 2
-
-  let marker = g.circle(
-    markerSize,
-    'darkgreen',
-    'rgba(0, 0, 0, 0.1)',
-    2
-  )
-
-  cell.possibleMoveMarker = marker
-
-  if (cell.cell.cellNbr < 12) {
-    cell.putBottom(marker, 0, -markerSize)
-  } else {
-    cell.putTop(marker, 0, markerSize)
-  }
-}
-
-function clearPossibleMoveMarkers () {
-  for (let cell of cells) {
-    if (cell.possibleMoveMarker) {
-      try {
-        g.remove(cell.possibleMoveMarker)
-      } catch (dumbError) {
-        // console.log('hexi tried crashing')
+    die.setNumber = function (number) {
+      switch (number) {
+        case 1:
+          die.one()
+          break
+        case 2:
+          die.two()
+          break
+        case 3:
+          die.three()
+          break
+        case 4:
+          die.four()
+          break
+        case 5:
+          die.five()
+          break
+        case 6:
+          die.six()
+          break
       }
     }
+
+    die.zero = function () {
+      die.children.length = 0
+    }
+    die.one = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 2
+      pip.y = dieHeight / 2
+    }
+    die.two = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 3
+      pip.y = dieHeight / 2
+      pip = makePip()
+      pip.x = (dieWidth / 3) * 2
+      pip.y = dieHeight / 2
+    }
+    die.three = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = dieWidth / 2
+      pip.y = dieHeight / 2
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = dieWidth / 4
+    }
+    die.four = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = dieHeight / 4
+      pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = dieWidth / 4
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = (dieHeight / 4) * 3
+    }
+    die.five = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = dieHeight / 4
+      pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = dieWidth / 4
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = dieHeight / 2
+      pip.y = dieHeight / 2
+    }
+    die.six = function () {
+      die.zero()
+      let pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = dieHeight / 4
+      pip = makePip()
+      pip.x = dieWidth / 4
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = dieWidth / 4
+      pip = makePip()
+      pip.x = (dieHeight / 4) * 3
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = dieHeight / 2
+      pip.y = (dieHeight / 4) * 3
+      pip = makePip()
+      pip.x = dieHeight / 2
+      pip.y = dieHeight / 4
+    }
+
+    function makePip () {
+      let pip = makeCircle(0, 0, pipSize, colors.pip)
+      die.addChild(pip)
+      return pip
+    }
+
+    return die
   }
-}
 
-function moveBackPiece (piece) {
-  addPieceToCell(piece, piece.piece.cellNbr)
-}
-
-function findCellOnPointer () {
-  for (let cell of cells) {
-    if (g.hitTestPoint(g.pointer, cell)) {
-      return cell
+  function checkDice () {
+    let dice = Backgammon.round.dice
+    let allUsed = true
+    for (let die of dice) {
+      if (!die.isUsed) {
+        allUsed = false
+      }
+    }
+    if (allUsed) {
+      die1.zero()
+      die2.zero()
     }
   }
+
+  function makeCell (x, y, color, isRotated) {
+    let cell = makeTriangle(x, y, cellWidth, cellHeight, color, isRotated)
+    backgroundLayer.addChild(cell)
+    let moveMarker = makeMoveMarker()
+    cell.addChild(moveMarker)
+    moveMarker.x = cellWidth / 2
+    moveMarker.y = cellHeight - padding
+    moveMarker.visible = false
+
+    cell.hideMarker = function () {
+      moveMarker.visible = false
+    }
+
+    cell.showMarker = function () {
+      moveMarker.visible = true
+    }
+
+    makeInteractive(cell, function () {
+      let activePlayer = Backgammon.round.player
+      if (activePlayer.activePiece.visible) {
+        let toCellNbr = cells.indexOf(cell)
+        let fromCellNbr = selectedPiece.piece.cellNbr
+        let successfulMove = Backgammon.movePiece(selectedPiece.piece, fromCellNbr, toCellNbr)
+        activePlayer.activePiece.hide()
+        if (!successfulMove) {
+          if (selectedPiece.piece.isJailed) return activePlayer.opponent.homeSprite.addChild(selectedPiece)
+          return makePiece(cells[fromCellNbr], selectedPiece.piece)
+        }
+        if (cell.children[1] && cell.children[1].piece.isJailed) {
+          let jailPiece = cell.children[1]
+          activePlayer.homeSprite.addChild(jailPiece)
+        }
+        makePiece(cell, selectedPiece.piece)
+        checkDice()
+      } else {
+        if (cell.children.length === 1) return
+        if (cell.children[1].piece.player !== activePlayer) return
+        selectedPiece = cell.children.pop()
+        activePlayer.activePiece.show()
+      }
+    })
+    return cell
+  }
+
+  function makePiece (cell, piece) {
+    let color = piece.player === Backgammon.player1 ? colors.pieceOne : colors.pieceTwo
+    let pieceSprite = makeCircle(0, 0, pieceSize, color, true)
+    cell.addChild(pieceSprite)
+    pieceSprite.x = cellWidth / 2
+    pieceSprite.y = pieceSize / 2 + pieceSize * (cell.children.length - 2)
+
+    pieceSprite.piece = piece
+    piece.pieceSprite = pieceSprite
+    return pieceSprite
+  }
+
+  function makeMoveMarker () {
+    let circle = makeCircle(0, 0, moveMarkerSize, colors.moveMarker)
+    return circle
+  }
+
+  function makeRoundedRectangle (x, y, width, height, fillColor, lineColor) {
+    let rectangle = new PIXI.Graphics
+    if (lineColor !== undefined) {
+      rectangle.lineStyle(2, lineColor)
+    }
+    rectangle.beginFill(fillColor)
+    rectangle.drawRoundedRect(0, 0, width, height, 10)
+    rectangle.endFill()
+    rectangle.x = x
+    rectangle.y = y
+
+    return rectangle
+  }
+
+  function makeCircle (x, y, size, color) {
+    let circle = new PIXI.Graphics()
+
+    size = size / 2
+
+    circle.beginFill(color)
+    circle.lineStyle(1, 0x000000)
+    circle.drawCircle(0, 0, size)
+    circle.endFill()
+    circle.x = x
+    circle.y = y
+
+    game.stage.addChild(circle)
+    return circle
+  }
+
+  function makeTriangle (x, y, width, height, color, isRotated) {
+    let triangle = new PIXI.Graphics()
+
+    triangle.beginFill(color)
+    triangle.drawPolygon([
+      0, 0,
+      width, 0,
+      width / 2, height
+    ])
+    triangle.endFill()
+    triangle.x = x
+    triangle.y = y
+
+    if (isRotated) {
+      triangle.pivot.set(width, height)
+      triangle.rotation = Math.PI
+    }
+
+    game.stage.addChild(triangle)
+    return triangle
+  }
+
+  function makeRectangle (x, y, width, height, color) {
+    let rectangle = new PIXI.Graphics()
+
+    rectangle.beginFill(color)
+    rectangle.drawRect(0, 0, width, height)
+    rectangle.x = x
+    rectangle.y = y
+    rectangle.endFill()
+
+    game.stage.addChild(rectangle)
+    return rectangle
+  }
 }
-
-function addPieceToCell (piece, cellNbr) {
-  let cell = cells[cellNbr]
-
-  if (cell && piece.cell && piece.cell.pieces && cell.pieces) {
-    piece.cell.pieces.splice(cell.pieces.indexOf(piece), 1)
-  }
-
-  piece.cell = cell
-
-  try {
-    cell.pieces.push(piece)
-  } catch (e) {
-    console.log('add piece to cell error', e)
-  }
-
-  let pieceHeight = piece.radius * 2
-  let piecesInCell = cell.pieces.length
-
-  if (cellNbr < 12) {
-    cell.putTop(piece, 0, pieceHeight * piecesInCell)
-  } else {
-    cell.putBottom(piece, 0, -pieceHeight * piecesInCell)
-  }
-}
-
-// jaila direkt
-
-// ta bort kanter runt cirklar?
-
-// flytta invisible scenes utanför skärmen
-
-// max bredd?
-
-// player.isJailed = false?
